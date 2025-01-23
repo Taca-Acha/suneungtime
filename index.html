@@ -80,13 +80,17 @@
         <button id="skipBtn">5Min Skip</button>
         <button id="oneBtn">1Min Skip</button>
         <br>
+        <button id="korBtn">go to Kor</button>
+        <button id="mathBtn">go to Math</button>
         <button id="engBtn">go to Eng</button>
+        <button id="hanBtn">go to Han</button>
+        <button id="tamBtn">go to Tamgu</button>
     </div>
     <script>
         let intervalId;
         let running = false;
         let currentTime = new Date();
-        currentTime.setHours(8, 40, 0); // 초기 시간을 8:40:00으로 설정
+        currentTime.setHours(8, 40, 0); // 8:40:00
 
         const examSchedule = [
             { start: '08:40', end: '10:00', name: '국어영역' },
@@ -109,7 +113,7 @@
 
             for (const period of examSchedule) {
                 if (currentTimeString >= period.start && currentTimeString < period.end) {
-                    examStatus.textContent = `${period.name} - 종료 | ${period.end}:00`;
+                    examStatus.textContent = `${period.name} | ${period.start} ~ ${period.end}`;
                     return;
                 }
             }
@@ -127,15 +131,47 @@
         function skipOneMinutes() {
             currentTime.setMinutes(currentTime.getMinutes() + 1);
             if (!running) {
-                setTime(); // 시계가 멈춰있을 때도 화면을 업데이트합니다.
+                setTime();
             }
         }
-
+        function skipToKor() {
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(40);
+            currentTime.setHours(8);
+            if (!running) {
+                setTime();
+            }
+        }
+        function skipToMath() {
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(30);
+            currentTime.setHours(10);
+            if (!running) {
+                setTime();
+            }
+        }
         function skipToEng() {
+            currentTime.setSeconds(0);
             currentTime.setMinutes(7);
             currentTime.setHours(13);
             if (!running) {
-                setTime(); // 시계가 멈춰있을 때도 화면을 업데이트합니다.
+                setTime();
+            }
+        }
+        function skipToHan() {
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(50);
+            currentTime.setHours(14);
+            if (!running) {
+                setTime();
+            }
+        }
+        function skipToTam() {
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(35);
+            currentTime.setHours(15);
+            if (!running) {
+                setTime();
             }
         }
 
@@ -201,9 +237,13 @@
         document.getElementById('skipBtn').addEventListener('click', skipFiveMinutes);
         document.getElementById('oneBtn').addEventListener('click', skipOneMinutes);
         document.getElementById('engBtn').addEventListener('click', skipToEng);
+        document.getElementById('korBtn').addEventListener('click', skipToKor);
+        document.getElementById('mathBtn').addEventListener('click', skipToMath);
+        document.getElementById('hanBtn').addEventListener('click', skipToHan);
+        document.getElementById('tamBtn').addEventListener('click', skipToTam);
 
         addNumbers();
-        setTime(); // 초기 시간 설정
+        setTime();
 
     </script>
 </body>
