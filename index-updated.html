@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아날로그 시계</title>
+    <style>
+    .clock {
+        width: 300px;
+        height: 300px;
+        border: 10px solid black;
+        border-radius: 50%;
+        position: relative;
+        margin: 50px auto;
+    }
+    .hand {
+        position: absolute;
+        bottom: 50%;
+        left: 50%;
+        transform-origin: bottom;
+    }
+    .hour {
+        width: 8px;
+        height: 70px;
+        background: black;
+    }
+    .minute {
+        width: 4px;
+        height: 100px;
+        background: grey;
+    }
+    .second {
+        width: 2px;
+        height: 120px;
+        background: black;
+    }
+    .number {
+        position: absolute;
+        font-size: 24px;
+        font-weight: bold;
+        width: 30px;
+        height: 30px;
+        text-align: center;
+        line-height: 30px;
+    }
+    .controls {
+        text-align: center;
+        margin-top: 20px;
+    }
+    button {
+        font-size: 16px;
+        padding: 10px 20px;
+        margin: 0 10px;
+    }
+    #digital-clock {
+        position: absolute;
+        bottom: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 16px;
+        font-weight: bold;
+        background-color: rgba(255, 255, 255, 0.7);
+        padding: 5px 10px;
+        border-radius: 5px;
+    }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">수능시계</h1>
+    <div class="clock">
+        <div class="hand hour"></div>
+        <div class="hand minute"></div>
+        <div class="hand second"></div>
+        <div id="digital-clock"></div>
+    </div>
+    <h2 id="exam-status" style="text-align: center;"></h2>
+    <div class="controls">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <button id="skipBtn">5Min Skip</button>
+        <button id="oneBtn">1Min Skip</button>
+        <br>
+        <button id="korBtn">go to Kor</button>
+        <button id="mathBtn">go to Math</button>
+        <button id="engBtn">go to Eng</button>
+        <button id="hanBtn">go to Han</button>
+        <button id="tamBtn">go to Tamgu</button>
+    </div>
+    <audio id="myAudio">
+        <source src="startjong_audio.wav">
+    </audio>
+    <script>
+        let intervalId;
+        let running = false;
+        let currentTime = new Date();
+        currentTime.setHours(8, 40, 0); // 8:40:00
+
+        var audioPlayed = {"13:07": true, "13:10": true};
+
+        function playAudio() {
+            const audio = document.getElementById("myAudio");
+            audio.play();
+        }
+
+        const examSchedule = [
+            { start: '08:40', end: '10:00', name: '국어영역' },
+            { start: '10:00', end: '10:30', name: '휴식/예비령/준비령' },
+            { start: '10:30', end: '12:10', name: '수학영역' },
+            { start: '12:10', end: '13:07', name: '휴식/예비령/준비령' },
+            { start: '13:07', end: '13:10', name: '영어 듣기평가 준비방송' },
+            { start: '13:10', end: '14:20', name: '영어영역' },
+            { start: '14:20', end: '14:50', name: '휴식/예비령/준비령' },
+            { start: '14:50', end: '15:20', name: '한국사영역' },
+            { start: '15:20', end: '15:35', name: '휴식/예비령/준비령' },
+            { start: '15:35', end: '16:05', name: '탐구1영역' },
+            { start: '16:05', end: '16:07', name: '문제지회수' },
+            { start: '16:07', end: '16:37', name: '탐구2영역' }
+        ];
+
+        function updateExamStatus() {
+            const examStatus = document.getElementById('exam-status');
+            const currentTimeString = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+
+            for (const period of examSchedule) {
+                if (currentTimeString >= period.start && currentTimeString < period.end) {
+                    examStatus.textContent = `${period.name} | ${period.start} ~ ${period.end}`;
+                    if (currentTimeString === period.start && !audioPlayed[period.start] && running) {
+                        playAudio();
+                        audioPlayed[period.start] = true;
+                    }
+
+                    // 종료 시간에 오디오 재생
+                    if (currentTimeString === period.end && !audioPlayed[period.end] && running) {
+                        playAudio();
+                        audioPlayed[period.end] = true;
+                    }
+
+                    return;
+                }
+            }
+
+            examStatus.textContent = '시 험 종 료';
+        }
+
+        function skipFiveMinutes() {
+            currentTime.setMinutes(currentTime.getMinutes() + 5);
+            if (!running) {
+                setTime(); // 시계가 멈춰있을 때도 화면을 업데이트합니다.
+            }
+        }
+
+        function skipOneMinutes() {
+            currentTime.setMinutes(currentTime.getMinutes() + 1);
+            if (!running) {
+                setTime();
+            }
+        }
+        function skipToKor() {
+            audioPlayed = {};
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(40);
+            currentTime.setHours(8);
+            if (!running) {
+                setTime();
+            }
+        }
+        function skipToMath() {
+            audioPlayed = {};
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(30);
+            currentTime.setHours(10);
+            if (!running) {
+                setTime();
+            }
+        }
+        function skipToEng() {
+            audioPlayed = {"13:07": true, "13:10": true};
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(7);
+            currentTime.setHours(13);
+            if (!running) {
+                setTime();
+            }
+        }
+        function skipToHan() {
+            audioPlayed = {};
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(50);
+            currentTime.setHours(14);
+            if (!running) {
+                setTime();
+            }
+        }
+        function skipToTam() {
+            audioPlayed = {};
+            currentTime.setSeconds(0);
+            currentTime.setMinutes(35);
+            currentTime.setHours(15);
+            if (!running) {
+                setTime();
+            }
+        }
+
+        function setTime() {
+            const seconds = currentTime.getSeconds();
+            const minutes = currentTime.getMinutes();
+            const hours = currentTime.getHours() % 12;
+
+            const secondDegrees = (seconds / 60) * 360;
+            const minuteDegrees = ((minutes + seconds / 60) / 60) * 360;
+            const hourDegrees = ((hours + minutes / 60) / 12) * 360;
+
+            document.querySelector('.second').style.transform = `translateX(-50%) rotate(${secondDegrees}deg)`;
+            document.querySelector('.minute').style.transform = `translateX(-50%) rotate(${minuteDegrees}deg)`;
+            document.querySelector('.hour').style.transform = `translateX(-50%) rotate(${hourDegrees}deg)`;
+
+            updateDigitalClock();
+            updateExamStatus();
+        }
+
+        function addNumbers() {
+            const clock = document.querySelector('.clock');
+            for (let i = 1; i <= 12; i++) {
+                const number = document.createElement('div');
+                number.className = 'number';
+                number.textContent = i;
+                const angle = (i * 30 - 90) * (Math.PI / 180);
+                const x = 135 + 120 * Math.cos(angle);
+                const y = 135 + 120 * Math.sin(angle);
+                number.style.left = `${x}px`;
+                number.style.top = `${y}px`;
+                clock.appendChild(number);
+            }
+        }
+
+        function updateDigitalClock() {
+            const digitalClock = document.getElementById('digital-clock');
+            const hours = String(currentTime.getHours()).padStart(2, '0');
+            const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+            const seconds = String(currentTime.getSeconds()).padStart(2, '0');
+            digitalClock.textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        function startClock() {
+            if (!running) {
+                running = true;
+                intervalId = setInterval(() => {
+                    currentTime.setSeconds(currentTime.getSeconds() + 1);
+                    setTime();
+                }, 1000);
+            }
+        }
+
+        function stopClock() {
+            if (running) {
+                running = false;
+                clearInterval(intervalId);
+            }
+        }
+
+        document.getElementById('startBtn').addEventListener('click', startClock);
+        document.getElementById('stopBtn').addEventListener('click', stopClock);
+        document.getElementById('skipBtn').addEventListener('click', skipFiveMinutes);
+        document.getElementById('oneBtn').addEventListener('click', skipOneMinutes);
+        document.getElementById('engBtn').addEventListener('click', skipToEng);
+        document.getElementById('korBtn').addEventListener('click', skipToKor);
+        document.getElementById('mathBtn').addEventListener('click', skipToMath);
+        document.getElementById('hanBtn').addEventListener('click', skipToHan);
+        document.getElementById('tamBtn').addEventListener('click', skipToTam);
+
+        addNumbers();
+        setTime();
+
+    </script>
+</body>
+</html>
