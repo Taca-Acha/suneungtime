@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>스터디 플래너</title>
+  <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <!-- html2canvas 라이브러리 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    /* 모든 요소에 box-sizing 적용 */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      padding: 20px;
+    }
+    /* 캡쳐 대상 전체 영역 */
+    #captureArea {
+      /* 캡쳐할 영역의 스타일을 조정 (필요 시 background, padding 등 추가) */
+    }
+    /* 타임라인 전체 컨테이너 */
+    .timeline {
+      display: flex;
+      border: 1px solid #ccc;
+      height: 800px;
+      overflow-y: auto;
+      background: #f9f9f9;
+      padding: 0;
+      margin: 0;
+    }
+    /* 왼쪽 시간 레이블 영역 */
+    .time-labels {
+      width: 60px;
+      border-right: 1px solid #ddd;
+      padding: 0;
+      margin: 0;
+    }
+    .time-label {
+      height: 30px;
+      line-height: 30px;
+      font-size: 14px;
+      padding-left: 5px;
+      border-bottom: 1px solid #ddd;
+    }
+    /* 오른쪽 시간 바 영역 */
+    .hour-rows {
+      flex: 1;
+      padding: 0;
+      margin: 0;
+      position: relative;
+    }
+    .hour-row {
+      position: relative;
+      border-bottom: 1px solid #ddd;
+      height: 30px;
+      margin: 0;
+    }
+    .hour-bar {
+      position: absolute;
+      left: 0;
+      top: 5px;
+      height: 20px;
+      width: 100%;
+      background-color: #e9ecef;
+      /* 10분 간격 선: 전체 폭을 6등분 */
+      background-image: linear-gradient(to right, #ccc 1px, transparent 1px);
+      background-size: calc(100% / 6) 100%;
+    }
+    /* 타이머 영역 */
+    .timer-display {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .timer-display .subject-time {
+      font-size: 48px;
+      font-weight: bold;
+    }
+    .timer-display .total-time {
+      font-size: 18px;
+      color: #555;
+    }
+    .subject-bar .btn {
+      margin-right: 5px;
+      margin-bottom: 5px;
+    }
+    .todo-item.completed .todo-text {
+      text-decoration: line-through;
+      color: #999;
+    }
+    .list-group {
+      height: 300px; /* li 높이에 맞춰 적절히 조절 */
+      overflow-y: auto;
+      direction: ltr; /* 스크롤바가 왼쪽에 위치하도록 */
+    }
+  </style>
+</head>
+<body>
+  <!-- 상단: 내보내기/불러오기/캡쳐 및 날짜 선택 -->
+  <div class="mb-3">
+    <button id="exportBtn" class="btn btn-outline-primary">내보내기</button>
+    <button id="importBtn" class="btn btn-outline-secondary">불러오기</button>
+    <input type="file" id="importFile" accept=".json" style="display:none;">
+    <button id="captureBtn" class="btn btn-outline-info ml-2">캡쳐</button>
+    <!-- 날짜 선택 -->
+    <input type="date" id="datePicker" class="ml-3" value="">
+    <h2 style="display: inline-block; vertical-align: middle; margin-left: 10px;" id="totalTimee">00:00:00</h2>
+  </div>
+
+  <!-- 캡쳐 영역 시작: 이 영역 전체가 캡쳐됩니다. -->
+  <div id="captureArea">
+    <div class="container-fluid">
+      <div class="row">
+        <!-- 왼쪽: 시간 기록 타임라인 -->
+        <div class="col-md-7">
+          <div class="timeline" id="timeline">
+            <!-- 두 영역으로 분리: 시간 레이블과 시간 바 -->
+            <div class="time-labels" id="timeLabels"></div>
+            <div class="hour-rows" id="hourRows"></div>
+          </div>
+        </div>
+        <!-- 오른쪽: 타이머, 과목선택, TODO -->
+        <div class="col-md-5">
+          <!-- 과목 선택 및 타이머 컨트롤 -->
+          <div class="subject-bar mb-3">
+            <button class="btn btn-outline-dark subject-btn" data-subject="국어">국어</button>
+            <button class="btn btn-outline-dark subject-btn" data-subject="수학">수학</button>
+            <button class="btn btn-outline-dark subject-btn" data-subject="영어">영어</button>
+            <button class="btn btn-outline-dark subject-btn" data-subject="물리">물리</button>
+            <button class="btn btn-outline-dark subject-btn" data-subject="지구">지구</button>
+            <button class="btn btn-outline-dark subject-btn" data-subject="기타">기타</button>
+          </div>
+          <div class="timer-display">
+            <div class="subject-time" id="subjectTime">00:00:00</div>
+            <div class="total-time" id="totalTime">전체: 00:00:00</div>
+            <div class="mt-3">
+              <button id="startStopBtn" class="btn btn-success">시작</button>
+            </div>
+          </div>
+          <!-- TODO 작성 및 목록 -->
+          <div class="card">
+            <div class="card-header">
+              TODO 리스트<h4 id="showtodos">0/0</h4>
+            </div>
+            <div class="card-body">
+              <form id="todoForm" class="mb-3">
+                <div class="form-group">
+                  <input type="text" id="todoText" class="form-control" placeholder="할 일을 입력하세요" required>
+                </div>
+                <div class="form-row">
+                  <div class="form-group col-md-5">
+                    <select id="todoSubject" class="form-control" required>
+                      <option value="">과목 선택</option>
+                      <option value="국어">국어</option>
+                      <option value="수학">수학</option>
+                      <option value="영어">영어</option>
+                      <option value="물리">물리</option>
+                      <option value="지구">지구</option>
+                      <option value="기타">기타</option>
+                    </select>
+                  </div>
+                  <div class="form-group col-md-2">
+                    <button type="submit" class="btn btn-primary btn-block">추가</button>
+                  </div>
+                </div>
+              </form>
+              <ul class="list-group" id="todoList">
+                <!-- TODO 항목들이 추가됨 -->
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- 캡쳐 영역 끝 -->
+
+  <!-- JavaScript 코드 -->
+  <script>
+
+    let alltodos = 0;
+    let successtodos = 0;
+    // 과목별 색상 설정
+    const subjectColors = {
+      '국어': '#ff6666',
+      '수학': '#66ccff',
+      '영어': '#66ff66',
+      '물리': '#ffcc66',
+      '지구': '#cc99ff',
+      '기타': '#111111'
+    };
+
+    // 데이터 저장 객체 (날짜별 기록과 TODO)
+    let data = {
+      records: {
+        // "YYYY-MM-DD": [ {subject, start: timestamp, end: timestamp}, ... ]
+      },
+      todos: [
+        // { subject, text, status, completed }
+      ]
+    };
+
+    // 현재 날짜 (YYYY-MM-DD)
+    let currentDate = new Date().toISOString().split('T')[0];
+    document.getElementById('datePicker').value = currentDate;
+
+    // 현재 타이머 관련 변수
+    let timerInterval = null;
+    let currentSession = null; // { subject, start: Date }
+
+    // 선택된 과목 (기본값: 국어)
+    let currentSubject = '국어';
+    // 기본적으로 첫번째 버튼 활성화
+    document.querySelectorAll('.subject-btn').forEach(btn => {
+      if(btn.dataset.subject === currentSubject){
+        btn.classList.add('active', 'btn-primary');
+      }
+      btn.addEventListener('click', function() {
+        currentSubject = this.dataset.subject;
+        document.querySelectorAll('.subject-btn').forEach(b => {
+          b.classList.remove('active', 'btn-primary');
+          b.classList.add('btn-outline-dark');
+        });
+        this.classList.add('active', 'btn-primary');
+        updateTimerDisplays();
+      });
+    });
+
+    // 타이머 시작/정지 버튼 이벤트
+    document.getElementById('startStopBtn').addEventListener('click', function(){
+      if(timerInterval) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    });
+
+    // 날짜 선택 변경 이벤트
+    document.getElementById('datePicker').addEventListener('change', function(){
+      currentDate = this.value;
+      updateTimeline();
+      updateTimerDisplays();
+      renderTodoList();
+    });
+
+    // 내보내기 버튼 이벤트
+    document.getElementById('exportBtn').addEventListener('click', function(){
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "study_data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    // 불러오기 버튼 이벤트
+    document.getElementById('importBtn').addEventListener('click', function(){
+      document.getElementById('importFile').click();
+    });
+    document.getElementById('importFile').addEventListener('change', function(e){
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(event){
+        try {
+          data = JSON.parse(event.target.result);
+          renderTodoList();
+          updateTimeline();
+          updateTimerDisplays();
+        } catch(err) {
+          alert("파일을 불러오는 중 오류가 발생했습니다.");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // 캡쳐 버튼 이벤트 (html2canvas 사용)
+    document.getElementById('captureBtn').addEventListener('click', function(){
+      html2canvas(document.getElementById('captureArea')).then(canvas => {
+        // 캡쳐된 이미지를 다운로드
+        const image = canvas.toDataURL("image/png");
+        const a = document.createElement('a');
+        a.href = image;
+        a.download = 'capture.png';
+        a.click();
+      });
+    });
+
+    // 타이머 시작 함수
+    function startTimer(){
+      if(!data.records[currentDate]) data.records[currentDate] = [];
+      currentSession = { subject: currentSubject, start: new Date() };
+      timerInterval = setInterval(() => {
+        updateTimerDisplays();
+        updateTimeline();
+      }, 1000);
+      document.getElementById('startStopBtn').classList.remove('btn-success');
+      document.getElementById('startStopBtn').classList.add('btn-danger');
+      document.getElementById('startStopBtn').textContent = "정지";
+    }
+
+    // 타이머 정지 함수
+    function stopTimer(){
+      clearInterval(timerInterval);
+      timerInterval = null;
+      currentSession.end = new Date();
+      data.records[currentDate].push(currentSession);
+      currentSession = null;
+      updateTimerDisplays();
+      updateTimeline();
+      document.getElementById('startStopBtn').classList.remove('btn-danger');
+      document.getElementById('startStopBtn').classList.add('btn-success');
+      document.getElementById('startStopBtn').textContent = "시작";
+    }
+
+    // 초를 HH:MM:SS 문자열로 변환
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
+    }
+
+    // 특정 과목 누적 시간(초) 계산 (현재 실행중인 세션 포함)
+    function getCumulativeTime(subject) {
+      let total = 0;
+      const sessions = data.records[currentDate] || [];
+      sessions.forEach(sess => {
+        if(sess.subject === subject && sess.end){
+          total += Math.floor((new Date(sess.end) - new Date(sess.start)) / 1000);
+        }
+      });
+      if(currentSession && currentSession.subject === subject){
+        total += Math.floor((new Date() - new Date(currentSession.start)) / 1000);
+      }
+      return total;
+    }
+    // 전체 누적 시간 계산
+    function getTotalTime() {
+      let total = 0;
+      const sessions = data.records[currentDate] || [];
+      sessions.forEach(sess => {
+        if(sess.end){
+          total += Math.floor((new Date(sess.end) - new Date(sess.start)) / 1000);
+        }
+      });
+      if(currentSession){
+        total += Math.floor((new Date() - new Date(currentSession.start)) / 1000);
+      }
+      return total;
+    }
+
+    // 타이머 디스플레이 업데이트
+    function updateTimerDisplays(){
+      const subjectSeconds = getCumulativeTime(currentSubject);
+      const totalSeconds = getTotalTime();
+      document.getElementById('subjectTime').textContent = formatTime(subjectSeconds);
+      document.getElementById('totalTime').textContent = "전체: " + formatTime(totalSeconds);
+      document.getElementById('totalTimee').textContent = formatTime(totalSeconds);
+    }
+
+    // 타임라인 업데이트 (시간 레이블과 시간 바 영역)
+    function updateTimeline(){
+      const timeLabelsContainer = document.getElementById('timeLabels');
+      const hourRowsContainer = document.getElementById('hourRows');
+
+      timeLabelsContainer.innerHTML = "";
+      hourRowsContainer.innerHTML = "";
+
+      for(let h = 0; h < 24; h++){
+        // 시간 레이블 생성
+        const label = document.createElement('div');
+        label.classList.add('time-label');
+        label.textContent = h + ":00";
+        timeLabelsContainer.appendChild(label);
+
+        // 시간 행 생성
+        const row = document.createElement('div');
+        row.classList.add('hour-row');
+        row.dataset.hour = h;
+        const bar = document.createElement('div');
+        bar.classList.add('hour-bar');
+        row.appendChild(bar);
+        hourRowsContainer.appendChild(row);
+      }
+
+      // 세션들을 시간 바에 표시 (진행 중 세션 포함)
+      const sessions = data.records[currentDate] ? [...data.records[currentDate]] : [];
+      if(currentSession) sessions.push(currentSession);
+      sessions.forEach(sess => {
+        const start = new Date(sess.start);
+        const end = sess.end ? new Date(sess.end) : new Date();
+        let startHour = start.getHours();
+        let endHour = end.getHours();
+        for(let h = startHour; h <= endHour; h++){
+          const row = hourRowsContainer.querySelector(`.hour-row[data-hour="${h}"]`);
+          if(!row) continue;
+          const hourStart = new Date(start);
+          hourStart.setHours(h,0,0,0);
+          const hourEnd = new Date(start);
+          hourEnd.setHours(h+1,0,0,0);
+          const segStart = Math.max(start.getTime(), hourStart.getTime());
+          const segEnd = Math.min(end.getTime(), hourEnd.getTime());
+          let segSeconds = (segEnd - segStart) / 1000;
+          if(segSeconds <= 0) continue;
+          const totalSeconds = 3600;
+          const leftPercent = ((segStart - hourStart.getTime()) / 1000) / totalSeconds * 100;
+          const widthPercent = (segSeconds / totalSeconds) * 100;
+          const segDiv = document.createElement('div');
+          segDiv.classList.add('segment');
+          segDiv.style.position = 'absolute';
+          segDiv.style.top = '0';
+          segDiv.style.left = leftPercent + "%";
+          segDiv.style.width = widthPercent + "%";
+          segDiv.style.height = '100%';
+          segDiv.style.backgroundColor = subjectColors[sess.subject] || "#999";
+          segDiv.style.opacity = '0.8';
+          segDiv.title = sess.subject + " " + formatTime(segSeconds);
+          row.appendChild(segDiv);
+        }
+      });
+    }
+
+    // TODO 리스트 렌더링 함수
+    function renderTodoList(){
+      const todoList = document.getElementById('todoList');
+      todoList.innerHTML = "";
+      alltodos = data.todos.length;
+      data.todos.forEach((todo, index) => {
+        addTodoItem(todo, index);
+      });
+      document.getElementById("showtodos").innerText = `${alltodos}(✅:${successtodos})`;
+    }
+
+    // TODO 항목 추가 및 UI 생성 (수정, 삭제 기능 포함)
+    function addTodoItem(todo, index){
+      const li = document.createElement('li');
+      li.classList.add("list-group-item", "todo-item");
+      li.dataset.index = index;
+
+      // 과목 배지
+      const badge = document.createElement('span');
+      badge.classList.add("badge", "mr-2");
+      badge.style.backgroundColor = subjectColors[todo.subject] || "#ccc";
+      badge.textContent = todo.subject;
+      li.appendChild(badge);
+
+      // 체크박스
+      const checkbox = document.createElement('input');
+      checkbox.type = "checkbox";
+      checkbox.classList.add("mr-2");
+      checkbox.checked = todo.completed;
+      checkbox.addEventListener('change', function(){
+        todo.completed = this.checked;
+        if(this.checked){
+          successtodos++;
+          li.classList.add("completed");
+        } else {
+          successtodos--;
+          li.classList.remove("completed");
+        }
+        document.getElementById("showtodos").innerText = `${alltodos}(✅:${successtodos})`;
+      });
+      li.appendChild(checkbox);
+
+      // TODO 텍스트 및 상태
+      const span = document.createElement('span');
+      span.classList.add("todo-text");
+      span.textContent = todo.text;
+      li.appendChild(span);
+
+      // 수정 버튼
+      const editBtn = document.createElement('button');
+      editBtn.textContent = "E";
+      editBtn.classList.add("btn", "btn-sm", "btn-outline-secondary", "ml-2");
+      editBtn.addEventListener('click', function(){
+        const newText = prompt("수정할 내용을 입력하세요", todo.text);
+        if(newText !== null && newText.trim() !== ""){
+          todo.text = newText.trim();
+          renderTodoList();
+        }
+      });
+      li.appendChild(editBtn);
+
+      // 삭제 버튼
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = "X";
+      deleteBtn.classList.add("btn", "btn-sm", "btn-outline-danger", "ml-2");
+      deleteBtn.addEventListener('click', function(){
+        if(confirm("이 항목을 삭제하시겠습니까?")){
+          alltodos--;
+          if(data.todos[index].completed == true){
+            successtodos--;
+          }
+          data.todos.splice(index, 1);
+          renderTodoList();
+        }
+      });
+      li.appendChild(deleteBtn);
+
+      document.getElementById('todoList').appendChild(li);
+    }
+
+    // TODO 폼 제출 이벤트
+    document.getElementById('todoForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const text = document.getElementById('todoText').value.trim();
+      const subject = document.getElementById('todoSubject').value;
+      const status = "0";
+      if(text && subject && status){
+        const todo = { subject, text, status, completed: false };
+        data.todos.push(todo);
+        renderTodoList();
+        this.reset();
+      }
+    });
+
+    // 초기 렌더링
+    updateTimeline();
+    updateTimerDisplays();
+    renderTodoList();
+  </script>
+  <!-- Bootstrap JS (jQuery, Popper.js 포함) -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+</body>
+</html>
